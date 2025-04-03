@@ -355,8 +355,8 @@ pub struct DisplayValue<T: fmt::Display>(T);
 pub struct DebugValue<T: fmt::Debug>(T);
 
 /// A `Value` which serializes as T or `tracing::field::Empty`.
-#[derive(Clone)]
-pub struct OptionValue<T>(Option<T>);
+#[derive(Clone, Copy)]
+pub struct OptionValue<'a, T>(Option<&'a T>);
 
 /// Wraps a type implementing `fmt::Display` as a `Value` that can be
 /// recorded using its `Display` implementation.
@@ -390,8 +390,8 @@ where
 }
 
 /// Wraps a type that either unwraps as inner T or as a tracing::field::Empty
-pub fn option<T>(t: Option<T>) -> OptionValue<T> {
-    OptionValue(t)
+pub fn option<T>(t: &Option<T>) -> OptionValue<'_, T> {
+    OptionValue(t.as_ref())
 }
 
 struct HexBytes<'a>(&'a [u8]);
@@ -782,9 +782,9 @@ impl Value for &'_ dyn valuable::Valuable {
 
 // ===== impl OptionValue =====
 
-impl<T: Value> crate::sealed::Sealed for OptionValue<T> {}
+impl<'a, T: Value> crate::sealed::Sealed for OptionValue<'a, T> {}
 
-impl<T: Value> Value for OptionValue<T> {
+impl<'a, T: Value> Value for OptionValue<'a, T> {
     fn record(&self, key: &Field, visitor: &mut dyn Visit) {
         match self.0.as_ref() {
             Some(inner) => inner.record(key, visitor),
@@ -793,7 +793,7 @@ impl<T: Value> Value for OptionValue<T> {
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for OptionValue<T> {
+impl<'a, T: fmt::Debug> fmt::Debug for OptionValue<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0.as_ref() {
             Some(inner) => inner.fmt(f),
